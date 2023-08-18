@@ -1,13 +1,12 @@
 use clap::Parser;
 use exporter::http::RequestContext;
+use mtop::client::Meta;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{io, process};
@@ -65,6 +64,46 @@ fn load_config() -> Vec<Rule> {
     ]
 }
 
+fn load_metas() -> Vec<Meta> {
+    vec![
+        Meta {
+            key: "prefix1:user1:something-else-whatever:12345".to_string(),
+            expires: 1693501794,
+            size: 320,
+        },
+        Meta {
+            key: "prefix2:user1:something-else-whatever:12345".to_string(),
+            expires: 1693501794,
+            size: 45,
+        },
+        Meta {
+            key: "prefix2:user2:something-else-again:56789".to_string(),
+            expires: 1693501794,
+            size: 210,
+        },
+        Meta {
+            key: "prefix3:user1:something-else-whatever:12345".to_string(),
+            expires: 1693501794,
+            size: 42115,
+        },
+        Meta {
+            key: "prefix3:user2:something-else-again:56789".to_string(),
+            expires: 1693501794,
+            size: 1848,
+        },
+        Meta {
+            key: "prefix3:user1:something-else-whatever:123456".to_string(),
+            expires: 1693501794,
+            size: 38,
+        },
+        Meta {
+            key: "prefix3:user2:something-else-again:567890".to_string(),
+            expires: 1693501794,
+            size: 998,
+        },
+    ]
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let opts = MkeApplication::parse();
@@ -76,8 +115,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     .expect("failed to set tracing subscriber");
 
     let cfg = load_config();
-    let f = File::open("keys.txt").unwrap();
-    let b = BufReader::new(f);
+    let metas = load_metas();
 
     let mut registry = <Registry>::default();
     let num_rules = Gauge::<i64>::default();
@@ -97,9 +135,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut counts_by_labels = HashMap::new();
     let mut sizes_by_labels = HashMap::new();
 
-    for line in b.lines() {
-        let l = line.unwrap();
-
+    for m in metas.iter() {
         names.clear();
         labels.clear();
 
@@ -109,7 +145,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
 
             let pattern = Regex::new(&r.pattern).unwrap();
-            if let Some(c) = pattern.captures(&l) {
+            if let Some(c) = pattern.captures(&m.key) {
                 names.insert(&r.label_name);
 
                 c.expand(&r.label_value, &mut val);
@@ -118,8 +154,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
         }
 
+        // TODO: Put these both in the same single struct and use one hashmap?
         *counts_by_labels.entry(labels.clone()).or_insert(0_i64) += 1;
-        *sizes_by_labels.entry(labels.clone()).or_insert(0_i64) += 42;
+        *sizes_by_labels.entry(labels.clone()).or_insert(0_i64) += m.size as i64;
     }
 
     for (labels, &count) in counts_by_labels.iter() {
