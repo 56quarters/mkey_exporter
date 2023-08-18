@@ -128,27 +128,23 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     num_rules.set(cfg.len() as i64);
 
-    let mut val = String::new();
-    let mut names = HashSet::new();
-    let mut labels = Vec::new();
-
+    let mut parser = LabelParser::new(cfg);
     let mut counts_by_labels = HashMap::new();
-    let mut sizes_by_labels = HashMap::new();
 
     for m in metas.iter() {
-        expand_labels(m, &cfg, &mut val, &mut names, &mut labels);
+        let labels = parser.extract(m);
 
-        // TODO: Put these both in the same single struct and use one hashmap?
-        *counts_by_labels.entry(labels.clone()).or_insert(0_i64) += 1;
-        *sizes_by_labels.entry(labels.clone()).or_insert(0_i64) += m.size as i64;
+        let e = counts_by_labels
+            .entry(labels)
+            .or_insert_with(LabelCounts::default);
+
+        e.count += 1;
+        e.size += m.size as i64;
     }
 
-    for (labels, &count) in counts_by_labels.iter() {
-        counts.get_or_create(labels).set(count);
-    }
-
-    for (labels, &size) in sizes_by_labels.iter() {
-        sizes.get_or_create(labels).set(size);
+    for (labels, c) in counts_by_labels.iter() {
+        counts.get_or_create(labels).set(c.count);
+        sizes.get_or_create(labels).set(c.size);
     }
 
     let context = Arc::new(RequestContext::new(registry));
@@ -173,29 +169,48 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-fn expand_labels<'a, 'b>(
-    meta: &'a Meta,
-    config: &'a [Rule],
-    value: &'b mut String,
-    names: &'b mut HashSet<&'a String>,
-    labels: &'b mut Vec<(String, String)>,
-) {
-    value.clear();
-    names.clear();
-    labels.clear();
+#[derive(Debug, Default)]
+struct LabelCounts {
+    count: i64,
+    size: i64,
+}
 
-    for rule in config.iter() {
-        if names.contains(&rule.label_name) {
-            continue;
+#[derive(Debug)]
+struct LabelParser {
+    config: Vec<Rule>,
+    value_cache: String,
+    names_cache: HashSet<String>,
+}
+
+impl LabelParser {
+    fn new(config: Vec<Rule>) -> Self {
+        Self {
+            config,
+            value_cache: String::new(),
+            names_cache: HashSet::new(),
+        }
+    }
+    fn extract(&mut self, meta: &Meta) -> Vec<(String, String)> {
+        self.value_cache.clear();
+        self.names_cache.clear();
+
+        let mut labels = Vec::new();
+
+        for rule in self.config.iter() {
+            if self.names_cache.contains(&rule.label_name) {
+                continue;
+            }
+
+            if let Some(c) = rule.pattern.captures(&meta.key) {
+                self.names_cache.insert(rule.label_name.clone());
+
+                c.expand(&rule.label_value, &mut self.value_cache);
+                labels.push((rule.label_name.clone(), self.value_cache.clone()));
+                self.value_cache.clear();
+            }
         }
 
-        if let Some(c) = rule.pattern.captures(&meta.key) {
-            names.insert(&rule.label_name);
-
-            c.expand(&rule.label_value, value);
-            labels.push((rule.label_name.clone(), value.clone()));
-            value.clear();
-        }
+        labels
     }
 }
 
