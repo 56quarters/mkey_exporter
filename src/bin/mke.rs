@@ -1,21 +1,19 @@
-use std::collections::HashSet;
+use clap::Parser;
+use exporter::http::RequestContext;
+use prometheus_client::metrics::family::Family;
+use prometheus_client::metrics::gauge::Gauge;
+use prometheus_client::registry::Registry;
+use regex::Regex;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{io, process};
-
-use clap::Parser;
-use prometheus_client::metrics::family::Family;
-use prometheus_client::metrics::gauge::Gauge;
-use prometheus_client::registry::Registry;
-use regex::Regex;
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tracing::Level;
-
-use exporter::http::RequestContext;
 
 const DEFAULT_LOG_LEVEL: Level = Level::INFO;
 const DEFAULT_BIND_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 9761);
@@ -86,11 +84,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let counts = Family::<Vec<(String, String)>, Gauge<i64>>::default();
     let sizes = Family::<Vec<(String, String)>, Gauge<i64>>::default();
 
-    registry.register(
-        "mke_num_rules",
-        "Number of defined label rules",
-        num_rules.clone(),
-    );
+    registry.register("mke_num_rules", "Number of rules", num_rules.clone());
     registry.register("mke_counts", "Counts of stuff", counts.clone());
     registry.register("mke_sizes", "Sizes of stuff", sizes.clone());
 
@@ -99,6 +93,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut val = String::new();
     let mut names = HashSet::new();
     let mut labels = Vec::new();
+
+    let mut counts_by_labels = HashMap::new();
+    let mut sizes_by_labels = HashMap::new();
 
     for line in b.lines() {
         let l = line.unwrap();
@@ -121,8 +118,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
         }
 
-        counts.get_or_create(&labels).inc();
-        sizes.get_or_create(&labels).inc_by(42);
+        *counts_by_labels.entry(labels.clone()).or_insert(0_i64) += 1;
+        *sizes_by_labels.entry(labels.clone()).or_insert(0_i64) += 42;
+    }
+
+    for (labels, &count) in counts_by_labels.iter() {
+        counts.get_or_create(labels).set(count);
+    }
+
+    for (labels, &size) in sizes_by_labels.iter() {
+        sizes.get_or_create(labels).set(size);
     }
 
     let context = Arc::new(RequestContext::new(registry));
