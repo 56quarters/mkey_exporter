@@ -34,7 +34,7 @@ struct MkeApplication {
 
 #[derive(Debug)]
 struct Rule {
-    pattern: String,
+    pattern: Regex,
     label_name: String,
     label_value: String,
 }
@@ -42,22 +42,22 @@ struct Rule {
 fn load_config() -> Vec<Rule> {
     vec![
         Rule {
-            pattern: r"^.+:([\w]+):".to_string(),
+            pattern: Regex::new(r"^.+:([\w]+):").unwrap(),
             label_name: "user".to_string(),
             label_value: "$1".to_string(),
         },
         Rule {
-            pattern: "prefix1:".to_string(),
+            pattern: Regex::new("prefix1:").unwrap(),
             label_name: "type".to_string(),
             label_value: "a-longer-prefix-1".to_string(),
         },
         Rule {
-            pattern: "prefix2:".to_string(),
+            pattern: Regex::new("prefix2:").unwrap(),
             label_name: "type".to_string(),
             label_value: "a-longer-prefix-2".to_string(),
         },
         Rule {
-            pattern: r"^([\w]+):".to_string(),
+            pattern: Regex::new(r"^([\w]+):").unwrap(),
             label_name: "type".to_string(),
             label_value: "$1".to_string(),
         },
@@ -136,23 +136,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut sizes_by_labels = HashMap::new();
 
     for m in metas.iter() {
-        names.clear();
-        labels.clear();
-
-        for r in cfg.iter() {
-            if names.contains(&r.label_name) {
-                continue;
-            }
-
-            let pattern = Regex::new(&r.pattern).unwrap();
-            if let Some(c) = pattern.captures(&m.key) {
-                names.insert(&r.label_name);
-
-                c.expand(&r.label_value, &mut val);
-                labels.push((r.label_name.clone(), val.clone()));
-                val.clear();
-            }
-        }
+        expand_labels(m, &cfg, &mut val, &mut names, &mut labels);
 
         // TODO: Put these both in the same single struct and use one hashmap?
         *counts_by_labels.entry(labels.clone()).or_insert(0_i64) += 1;
@@ -187,6 +171,32 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     tracing::info!("server shutdown");
     Ok(())
+}
+
+fn expand_labels<'a, 'b>(
+    meta: &'a Meta,
+    config: &'a [Rule],
+    value: &'b mut String,
+    names: &'b mut HashSet<&'a String>,
+    labels: &'b mut Vec<(String, String)>,
+) {
+    value.clear();
+    names.clear();
+    labels.clear();
+
+    for rule in config.iter() {
+        if names.contains(&rule.label_name) {
+            continue;
+        }
+
+        if let Some(c) = rule.pattern.captures(&meta.key) {
+            names.insert(&rule.label_name);
+
+            c.expand(&rule.label_value, value);
+            labels.push((rule.label_name.clone(), value.clone()));
+            value.clear();
+        }
+    }
 }
 
 /// Return after the first SIGTERM signal received by this process
