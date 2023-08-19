@@ -1,6 +1,6 @@
 use clap::Parser;
 use exporter::http::RequestContext;
-use mtop::client::Meta;
+use mtop::client::{Meta, MemcachedPool, TLSConfig};
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
@@ -10,6 +10,7 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{io, process};
+use tokio::runtime::Handle;
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tracing::Level;
@@ -47,59 +48,9 @@ fn load_config() -> Vec<Rule> {
             label_value: "$1".to_string(),
         },
         Rule {
-            pattern: Regex::new("prefix1:").unwrap(),
-            label_name: "type".to_string(),
-            label_value: "a-longer-prefix-1".to_string(),
-        },
-        Rule {
-            pattern: Regex::new("prefix2:").unwrap(),
-            label_name: "type".to_string(),
-            label_value: "a-longer-prefix-2".to_string(),
-        },
-        Rule {
             pattern: Regex::new(r"^([\w]+):").unwrap(),
             label_name: "type".to_string(),
             label_value: "$1".to_string(),
-        },
-    ]
-}
-
-fn load_metas() -> Vec<Meta> {
-    vec![
-        Meta {
-            key: "prefix1:user1:something-else-whatever:12345".to_string(),
-            expires: 1693501794,
-            size: 320,
-        },
-        Meta {
-            key: "prefix2:user1:something-else-whatever:12345".to_string(),
-            expires: 1693501794,
-            size: 45,
-        },
-        Meta {
-            key: "prefix2:user2:something-else-again:56789".to_string(),
-            expires: 1693501794,
-            size: 210,
-        },
-        Meta {
-            key: "prefix3:user1:something-else-whatever:12345".to_string(),
-            expires: 1693501794,
-            size: 42115,
-        },
-        Meta {
-            key: "prefix3:user2:something-else-again:56789".to_string(),
-            expires: 1693501794,
-            size: 1848,
-        },
-        Meta {
-            key: "prefix3:user1:something-else-whatever:123456".to_string(),
-            expires: 1693501794,
-            size: 38,
-        },
-        Meta {
-            key: "prefix3:user2:something-else-again:567890".to_string(),
-            expires: 1693501794,
-            size: 998,
         },
     ]
 }
@@ -114,8 +65,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )
     .expect("failed to set tracing subscriber");
 
+    let pool = MemcachedPool::new(Handle::current(), TLSConfig::default()).await.unwrap();
+    let mut client = pool.get("localhost:11211").await.unwrap();
     let cfg = load_config();
-    let metas = load_metas();
 
     let mut registry = <Registry>::default();
     let num_rules = Gauge::<i64>::default();
@@ -131,9 +83,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut parser = LabelParser::new(cfg);
     let mut counts_by_labels = HashMap::new();
 
-    for m in metas.iter() {
-        let labels = parser.extract(m);
-
+    for m in client.metas().await.unwrap() {
+        let labels = parser.extract(&m);
         let e = counts_by_labels
             .entry(labels)
             .or_insert_with(LabelCounts::default);
@@ -190,6 +141,7 @@ impl LabelParser {
             names_cache: HashSet::new(),
         }
     }
+
     fn extract(&mut self, meta: &Meta) -> Vec<(String, String)> {
         self.value_cache.clear();
         self.names_cache.clear();
