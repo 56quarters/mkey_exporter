@@ -10,6 +10,7 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{io, process};
+use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
@@ -65,8 +66,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )
     .expect("failed to set tracing subscriber");
 
-    let pool = MemcachedPool::new(Handle::current(), TLSConfig::default()).await.unwrap();
-    let mut client = pool.get("localhost:11211").await.unwrap();
     let cfg = load_config();
 
     let mut registry = <Registry>::default();
@@ -80,23 +79,38 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     num_rules.set(cfg.len() as i64);
 
-    let mut parser = LabelParser::new(cfg);
-    let mut counts_by_labels = HashMap::new();
 
-    for m in client.metas().await.unwrap() {
-        let labels = parser.extract(&m);
-        let e = counts_by_labels
-            .entry(labels)
-            .or_insert_with(LabelCounts::default);
+    let pool = MemcachedPool::new(Handle::current(), TLSConfig::default()).await.unwrap();
 
-        e.count += 1;
-        e.size += m.size as i64;
-    }
+    tokio::spawn(async move {
+        let mut parser = LabelParser::new(cfg);
+        let mut counts_by_labels = HashMap::new();
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
 
-    for (labels, c) in counts_by_labels.iter() {
-        counts.get_or_create(labels).set(c.count);
-        sizes.get_or_create(labels).set(c.size);
-    }
+        loop {
+            interval.tick().await;
+            let mut client = pool.get("localhost:11211").await.unwrap();
+
+            for m in client.metas().await.unwrap() {
+                let labels = parser.extract(&m);
+                let e = counts_by_labels
+                    .entry(labels)
+                    .or_insert_with(LabelCounts::default);
+
+                e.count += 1;
+                e.size += m.size as i64;
+            }
+
+            for (labels, c) in counts_by_labels.iter() {
+                counts.get_or_create(labels).set(c.count);
+                sizes.get_or_create(labels).set(c.size);
+            }
+
+            pool.put(client).await;
+            counts_by_labels.clear();
+        }
+    });
+
 
     let context = Arc::new(RequestContext::new(registry));
     let handler = exporter::http::text_metrics(context);
