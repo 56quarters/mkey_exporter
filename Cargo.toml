@@ -1,12 +1,12 @@
 [package]
-name = "mc-key-exporter"
+name = "mckey_exporter"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "3.0.14", features = ["cargo", "derive", "std"], default-features = false }
+clap = { version = "4.1.8", features = ["cargo", "derive", "help", "error-context", "std", "usage", "wrap_help"], default_features = false }
 prometheus-client = "0.21.2"
 regex = "1.9.3"
 serde = { version = "1.0.183", features = ["derive"] }
@@ -18,5 +18,5 @@ warp = "0.3.5"
 mtop-client = { git = "https://github.com/56quarters/mtop.git" }
 
 [lib]
-name = "exporter"
-path = "src/exporter/lib.rs"
+name = "mkey_exporter"
+path = "src/mkey_exporter/lib.rs"
