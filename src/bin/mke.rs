@@ -1,6 +1,6 @@
 use clap::Parser;
 use exporter::http::RequestContext;
-use mtop::client::{Meta, MemcachedPool, TLSConfig};
+use mtop_client::{Meta, MemcachedPool, TLSConfig};
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     tokio::spawn(async move {
         let mut parser = LabelParser::new(cfg);
         let mut counts_by_labels = HashMap::new();
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
 
         loop {
             interval.tick().await;
@@ -110,7 +110,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             counts_by_labels.clear();
         }
     });
-
 
     let context = Arc::new(RequestContext::new(registry));
     let handler = exporter::http::text_metrics(context);

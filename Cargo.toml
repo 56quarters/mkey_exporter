@@ -15,7 +15,7 @@ tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 warp = "0.3.5"
-mtop = { git = "https://github.com/56quarters/mtop.git" }
+mtop-client = { git = "https://github.com/56quarters/mtop.git" }
 
 [lib]
 name = "exporter"
