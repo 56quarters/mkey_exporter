@@ -1,0 +1,8 @@
+name: demo
+rules:
+- pattern: '^\w+:([\w\-]+):'
+  label_name: 'user'
+  label_value: '$1'
+- pattern: '^(\w+):'
+  label_name: 'type'
+  label_value: '$1'
