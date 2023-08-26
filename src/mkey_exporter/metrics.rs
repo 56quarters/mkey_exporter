@@ -23,7 +23,7 @@ impl RequestContext {
 /// a registry in the text exposition format at the path `/metrics` for `GET`
 /// requests. If an error is encountered, an HTTP 500 will be returned and the
 /// error will be logged.
-pub fn text_metrics(
+pub fn text_metrics_filter(
     context: Arc<RequestContext>,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path("metrics")

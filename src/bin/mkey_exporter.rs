@@ -1,8 +1,10 @@
 use clap::{Parser, ValueHint};
 use mkey_exporter::config::Rule;
-use mkey_exporter::http::RequestContext;
+use mkey_exporter::metrics::RequestContext;
 use mkey_exporter::keys::LabelParser;
 use mtop_client::{MemcachedPool, TLSConfig};
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
+use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
@@ -23,6 +25,12 @@ const DEFAULT_BIND_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 9761);
 const DEFAULT_REFERSH_SECS: u64 = 60;
 const DEFAULT_LOG_LEVEL: Level = Level::INFO;
 const DEFAULT_HOST: &str = "localhost:11211";
+const RESULT_SUCCESS: UpdateResultLabels = UpdateResultLabels {
+    result: UpdateResult::Success,
+};
+const RESULT_FAILURE: UpdateResultLabels = UpdateResultLabels {
+    result: UpdateResult::Failure,
+};
 
 /// Export some stuff from Memcached
 #[derive(Debug, Parser)]
@@ -98,18 +106,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     .expect("failed to set tracing subscriber");
 
     let cfg = load_config();
-
-    let mut registry = <Registry>::default();
-    let num_rules = Gauge::<i64>::default();
-    let counts = Family::<Vec<(String, String)>, Gauge<i64>>::default();
-    let sizes = Family::<Vec<(String, String)>, Gauge<i64>>::default();
-
-    registry.register("mkey_num_rules", "Number of rules", num_rules.clone());
-    registry.register("mkey_counts", "Counts of stuff", counts.clone());
-    registry.register("mkey_sizes", "Sizes of stuff", sizes.clone());
-
-    num_rules.set(cfg.len() as i64);
-
     let pool = MemcachedPool::new(
         Handle::current(),
         TLSConfig {
@@ -126,6 +122,24 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         process::exit(1);
     });
 
+    // TODO: Move all metrics into their own struct like in nws_exporter
+    let mut registry = <Registry>::default();
+    let num_rules = Gauge::<i64>::default();
+    let iterations = Family::<UpdateResultLabels, Counter>::default();
+    let counts = Family::<Vec<(String, String)>, Gauge<i64>>::default();
+    let sizes = Family::<Vec<(String, String)>, Gauge<i64>>::default();
+
+    registry.register("mkey_num_rules", "Number of rules", num_rules.clone());
+    registry.register(
+        "mkey_iterations_total",
+        "Update iterations",
+        iterations.clone(),
+    );
+    registry.register("mkey_memcached_counts", "Counts of stuff", counts.clone());
+    registry.register("mkey_memcached_sizes", "Sizes of stuff", sizes.clone());
+
+    num_rules.set(cfg.len() as i64);
+
     tokio::spawn(async move {
         let mut parser = LabelParser::new(&cfg);
         let mut counts_by_labels = HashMap::new();
@@ -138,6 +152,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 Ok(c) => c,
                 Err(e) => {
                     tracing::warn!(message = "failed to connect to server", host = %opts.host, err = %e);
+                    iterations.get_or_create(&RESULT_FAILURE).inc();
                     continue;
                 }
             };
@@ -146,11 +161,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 Ok(m) => m,
                 Err(e) => {
                     tracing::warn!(message = "failed to fetch key metas", host = %opts.host, err = %e);
+                    iterations.get_or_create(&RESULT_FAILURE).inc();
                     continue;
                 }
             };
 
-            for m in metas {
+            for m in metas.iter() {
                 let labels = parser.extract(&m);
                 let e = counts_by_labels
                     .entry(labels)
@@ -165,13 +181,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 sizes.get_or_create(labels).set(c.size);
             }
 
-            pool.put(client).await;
+            tracing::debug!(message = "updated metrics for memcached keys", num_keys = metas.len(), num_unique_labels = counts_by_labels.len());
+            iterations.get_or_create(&RESULT_SUCCESS).inc();
             counts_by_labels.clear();
+            pool.put(client).await;
         }
     });
 
     let context = Arc::new(RequestContext::new(registry));
-    let handler = mkey_exporter::http::text_metrics(context);
+    let handler = mkey_exporter::metrics::text_metrics_filter(context);
     let (sock, server) = warp::serve(handler)
         .try_bind_with_graceful_shutdown(opts.bind, async {
             // Wait for either SIGTERM or SIGINT to shutdown
@@ -190,6 +208,26 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     tracing::info!("server shutdown");
     Ok(())
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+struct UpdateResultLabels {
+    result: UpdateResult,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+enum UpdateResult {
+    Success,
+    Failure,
+}
+
+impl EncodeLabelValue for UpdateResult {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        match self {
+            UpdateResult::Success => EncodeLabelValue::encode(&"success", encoder),
+            UpdateResult::Failure => EncodeLabelValue::encode(&"failure", encoder),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
