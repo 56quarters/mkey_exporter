@@ -112,7 +112,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         process::exit(1);
     });
 
-    let mut registry = <Registry>::default();
+    let mut registry = Registry::default();
     let metrics = Metrics::new(&mut registry);
 
     tokio::spawn(async move {
@@ -142,6 +142,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             };
 
             let mut counts_by_labels = HashMap::new();
+            let num_keys = metas.len();
 
             for m in metas.iter() {
                 let labels = parser.extract(m);
@@ -158,14 +159,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             // At the end of every update loop, we add all the unique label sets we found to
             // the "to remove" set. At the beginning of the next update loop, we remove any of
             // the labels that are generated from the new meta objects from the "to remove" set.
-            // At this point in the loop we left with a set of labels that existed the last
+            // At this point in the loop we are left with a set of labels that existed the last
             // iteration but no longer do and are thus safe to remove from our metric registry.
             metrics.cleanup_keys(&to_remove);
             to_remove.clear();
 
-            for (labels, c) in counts_by_labels.iter() {
-                metrics.update_key(labels, c.count, c.size);
-                to_remove.insert(labels.clone());
+            let num_unique_labels = counts_by_labels.len();
+            for (labels, c) in counts_by_labels {
+                metrics.update_key(&labels, c.count, c.size);
+                to_remove.insert(labels);
             }
 
             // Try to reduce memory usage down from the high-water mark.
@@ -175,12 +177,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             tracing::info!(
                 message = "updated metrics for memcached keys",
                 rule_group = cfg.name,
-                num_keys = metas.len(),
-                num_unique_labels = counts_by_labels.len(),
+                num_keys = num_keys,
+                num_unique_labels = num_unique_labels,
                 time_taken = ?time_taken,
             );
             metrics.incr_success(time_taken);
-            counts_by_labels.clear();
             pool.put(client).await;
         }
     });
