@@ -197,7 +197,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
         })
         .unwrap_or_else(|e| {
-            tracing::error!(message = "error binding to address", address = "", err = %e);
+            tracing::error!(message = "error binding to address", address = %opts.bind, err = %e);
             process::exit(1)
         });
 
