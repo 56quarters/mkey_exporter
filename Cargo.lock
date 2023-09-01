@@ -586,6 +586,7 @@ dependencies = [
 [[package]]
 name = "mtop-client"
 version = "0.6.3"
+source = "git+https://github.com/56quarters/mtop.git#b6523dd0b97c7e346ba775f770a1757db6756527"
 dependencies = [
  "rustls-pemfile",
  "rustls-webpki",

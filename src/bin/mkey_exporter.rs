@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 server_name: opts.tls_server_name,
             },
             ..Default::default()
-        }
+        },
     )
     .await
     .unwrap_or_else(|e| {
@@ -148,9 +148,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 let labels = parser.extract(m);
                 to_remove.remove(&labels);
 
-                let e = counts_by_labels
-                    .entry(labels)
-                    .or_insert_with(LabelCounts::default);
+                let e = counts_by_labels.entry(labels).or_insert_with(LabelCounts::default);
 
                 e.count += 1;
                 e.size += m.size as i64;

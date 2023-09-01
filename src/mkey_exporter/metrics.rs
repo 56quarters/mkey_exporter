@@ -13,9 +13,7 @@ use warp::http::{HeaderValue, StatusCode};
 use warp::reply::Response;
 use warp::{Filter, Rejection, Reply};
 
-const DEFAULT_BUCKETS: &[f64] = &[
-    0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0,
-];
+const DEFAULT_BUCKETS: &[f64] = &[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0];
 const TEXT_FORMAT: &str = "application/openmetrics-text; version=1.0.0; charset=utf-8";
 const RESULT_SUCCESS: UpdateResultLabels = UpdateResultLabels {
     result: UpdateResult::Success,
@@ -42,26 +40,24 @@ impl RequestContext {
 pub fn text_metrics_filter(
     context: Arc<RequestContext>,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    warp::path("metrics")
-        .and(warp::filters::method::get())
-        .map(move || {
-            let context = context.clone();
-            let mut buf = String::new();
+    warp::path("metrics").and(warp::filters::method::get()).map(move || {
+        let context = context.clone();
+        let mut buf = String::new();
 
-            match text::encode(&mut buf, &context.registry) {
-                Ok(_) => {
-                    tracing::debug!(message = "encoded prometheus metrics to text format",);
-                    let mut res = Response::new(buf.into());
-                    res.headers_mut()
-                        .insert(CONTENT_TYPE, HeaderValue::from_static(TEXT_FORMAT));
-                    res
-                }
-                Err(e) => {
-                    tracing::error!(message = "error encoding metrics to text format", error = %e);
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
-                }
+        match text::encode(&mut buf, &context.registry) {
+            Ok(_) => {
+                tracing::debug!(message = "encoded prometheus metrics to text format",);
+                let mut res = Response::new(buf.into());
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static(TEXT_FORMAT));
+                res
             }
-        })
+            Err(e) => {
+                tracing::error!(message = "error encoding metrics to text format", error = %e);
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    })
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
@@ -100,12 +96,7 @@ impl Metrics {
         let sizes = Family::<Vec<(String, String)>, Gauge<i64>>::default();
 
         reg.register("mkey_updates", "Update iterations", updates.clone());
-        reg.register_with_unit(
-            "mkey_updates_duration",
-            "Blah",
-            Unit::Seconds,
-            duration.clone(),
-        );
+        reg.register_with_unit("mkey_updates_duration", "Blah", Unit::Seconds, duration.clone());
         reg.register("mkey_memcached_counts", "Counts of stuff", counts.clone());
         reg.register("mkey_memcached_sizes", "Sizes of stuff", sizes.clone());
 
