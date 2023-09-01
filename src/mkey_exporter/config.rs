@@ -7,8 +7,7 @@ use std::path::PathBuf;
 
 pub fn from_path(path: &PathBuf) -> Result<RuleGroup, io::Error> {
     let reader = File::open(path)?;
-    let group = serde_yaml::from_reader(reader)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    let group = serde_yaml::from_reader(reader).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
     Ok(group)
 }
 
@@ -50,8 +49,8 @@ impl<'de> Deserialize<'de> for RulePattern {
         D: Deserializer<'de>,
     {
         let raw = String::deserialize(deserializer)?;
-        let reg = Regex::new(&raw)
-            .map_err(|e| de::Error::custom(format!("unable to parse pattern {:?}: {}", raw, e)))?;
+        let reg =
+            Regex::new(&raw).map_err(|e| de::Error::custom(format!("unable to parse pattern {:?}: {}", raw, e)))?;
         Ok(RulePattern(reg))
     }
 }

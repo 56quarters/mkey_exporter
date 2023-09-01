@@ -1,6 +1,13 @@
 [package]
 name = "mkey_exporter"
 version = "0.1.0"
+authors = ["Nick Pillitteri"]
+description = "Inspect Memcached keys as Prometheus metrics"
+homepage = "https://github.com/56quarters/mkey_exporter"
+repository = "https://github.com/56quarters/mkey_exporter"
+readme = "README.md"
+license = "GPL-3.0+"
+keywords = ["top", "memcached"]
 edition = "2021"
 
 [dependencies]
@@ -13,7 +20,7 @@ tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 warp = "0.3.5"
-mtop-client = { path = "../mtop/mtop-client" }
+mtop-client = { git = "https://github.com/56quarters/mtop.git" }
 
 [lib]
 name = "mkey_exporter"
