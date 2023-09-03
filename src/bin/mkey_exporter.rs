@@ -15,6 +15,7 @@ use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tokio::time::Instant;
 use tracing::Level;
+use warp::Filter;
 
 const DEFAULT_BIND_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 9761);
 const DEFAULT_REFRESH_SECS: u64 = 180;
@@ -114,9 +115,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let mut registry = Registry::default();
     let metrics = Metrics::new(&mut registry);
+    let profiler = mkey_exporter::profile::build().unwrap_or_else(|e| {
+        tracing::error!(message = "unable to initialize CPU profiler", err = %e);
+        process::exit(1);
+    });
 
     tokio::spawn(async move {
-        let mut parser = LabelParser::new(&cfg);
+        let parser = LabelParser::new(&cfg);
         let mut interval = tokio::time::interval(Duration::from_secs(opts.refresh_secs));
         let mut to_remove = HashSet::new();
 
@@ -185,7 +190,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     });
 
     let context = Arc::new(RequestContext::new(registry));
-    let filter = mkey_exporter::metrics::text_metrics_filter(context);
+    let filter =
+        mkey_exporter::metrics::http_text_metrics(context).or(mkey_exporter::profile::http_pprof(Arc::new(profiler)));
     let (sock, server) = warp::serve(filter)
         .try_bind_with_graceful_shutdown(opts.bind, async {
             // Wait for either SIGTERM or SIGINT to shutdown

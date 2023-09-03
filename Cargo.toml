@@ -22,6 +22,13 @@ tracing-subscriber = "0.3.17"
 warp = "0.3.5"
 mtop-client = { git = "https://github.com/56quarters/mtop.git" }
 
+# Profiling, disabled by default
+pprof = {version =  "0.12.1", features = ["protobuf-codec"] , optional = true}
+
+[features]
+default = []
+profile = ["dep:pprof"]
+
 [lib]
 name = "mkey_exporter"
 path = "src/mkey_exporter/lib.rs"

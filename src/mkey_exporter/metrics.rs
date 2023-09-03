@@ -13,8 +13,8 @@ use warp::http::{HeaderValue, StatusCode};
 use warp::reply::Response;
 use warp::{Filter, Rejection, Reply};
 
-const DEFAULT_BUCKETS: &[f64] = &[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0];
 const TEXT_FORMAT: &str = "application/openmetrics-text; version=1.0.0; charset=utf-8";
+const DEFAULT_BUCKETS: &[f64] = &[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0];
 const RESULT_SUCCESS: UpdateResultLabels = UpdateResultLabels {
     result: UpdateResult::Success,
 };
@@ -37,9 +37,7 @@ impl RequestContext {
 /// a registry in the text exposition format at the path `/metrics` for `GET`
 /// requests. If an error is encountered, an HTTP 500 will be returned and the
 /// error will be logged.
-pub fn text_metrics_filter(
-    context: Arc<RequestContext>,
-) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+pub fn http_text_metrics(context: Arc<RequestContext>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path("metrics").and(warp::filters::method::get()).map(move || {
         let context = context.clone();
         let mut buf = String::new();
