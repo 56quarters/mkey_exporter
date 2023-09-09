@@ -93,10 +93,27 @@ impl Metrics {
         let counts = Family::<Vec<(String, String)>, Gauge<i64>>::default();
         let sizes = Family::<Vec<(String, String)>, Gauge<i64>>::default();
 
-        reg.register("mkey_updates", "Update iterations", updates.clone());
-        reg.register_with_unit("mkey_updates_duration", "Blah", Unit::Seconds, duration.clone());
-        reg.register("mkey_memcached_counts", "Counts of stuff", counts.clone());
-        reg.register("mkey_memcached_sizes", "Sizes of stuff", sizes.clone());
+        reg.register(
+            "mkey_updates",
+            "How many update loops have been run by the result",
+            updates.clone(),
+        );
+        reg.register_with_unit(
+            "mkey_updates_duration",
+            "How long update loops take in seconds",
+            Unit::Seconds,
+            duration.clone(),
+        );
+        reg.register(
+            "mkey_memcached_counts",
+            "Counts of keys matching the supplied configuration",
+            counts.clone(),
+        );
+        reg.register(
+            "mkey_memcached_sizes",
+            "Total size of all keys matching the supplied configuration",
+            sizes.clone(),
+        );
 
         Self {
             updates,
