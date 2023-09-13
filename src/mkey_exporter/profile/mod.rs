@@ -81,13 +81,14 @@ pub fn http_pprof(profiler: Arc<Profiler>) -> impl Filter<Extract = impl Reply, 
             let profiler = profiler.clone();
             match profiler.proto() {
                 Ok(bytes) => {
+                    tracing::debug!(message = "encoded profiling data to protobuf", bytes = bytes.len());
                     let mut res = Response::new(bytes);
                     res.headers_mut()
                         .insert(CONTENT_TYPE, HeaderValue::from_static(OCTET_STREAM));
                     res.into_response()
                 }
                 Err(e) => {
-                    tracing::error!(message = "error building profiling report", error = %e);
+                    tracing::error!(message = "error building or encoding profiling report", error = %e);
                     StatusCode::INTERNAL_SERVER_ERROR.into_response()
                 }
             }

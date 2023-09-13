@@ -1,6 +1,6 @@
 use clap::{Parser, ValueHint};
 use mkey_exporter::keys::LabelParser;
-use mkey_exporter::metrics::{Metrics, RequestContext};
+use mkey_exporter::metrics::Metrics;
 use mtop_client::{MemcachedPool, MtopError, PoolConfig, TLSConfig};
 use prometheus_client::registry::Registry;
 use std::collections::{HashMap, HashSet};
@@ -30,6 +30,11 @@ struct MkeyExporterApplication {
     /// (case insensitive)
     #[arg(long, default_value_t = DEFAULT_LOG_LEVEL)]
     log_level: Level,
+
+    /// Enable logging of HTTP requests such as /metrics or (optional) profiling
+    /// endpoints.
+    #[arg(long)]
+    access_log: bool,
 
     /// Address to bind to. By default, the server will bind to public address since
     /// the purpose is to expose metrics to an external system (Prometheus or another
@@ -189,9 +194,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
     });
 
-    let context = Arc::new(RequestContext::new(registry));
-    let filter =
-        mkey_exporter::metrics::http_text_metrics(context).or(mkey_exporter::profile::http_pprof(Arc::new(profiler)));
+    let filter = mkey_exporter::metrics::http_text_metrics(Arc::new(registry))
+        .or(mkey_exporter::profile::http_pprof(Arc::new(profiler)))
+        .with(warp::trace::request());
+
     let (sock, server) = warp::serve(filter)
         .try_bind_with_graceful_shutdown(opts.bind, async {
             // Wait for either SIGTERM or SIGINT to shutdown
