@@ -22,29 +22,18 @@ const RESULT_FAILURE: UpdateResultLabels = UpdateResultLabels {
     result: UpdateResult::Failure,
 };
 
-/// Global stated shared between all HTTP requests via Arc.
-pub struct RequestContext {
-    registry: Registry,
-}
-
-impl RequestContext {
-    pub fn new(registry: Registry) -> Self {
-        RequestContext { registry }
-    }
-}
-
 /// Create a warp Filter implementation that renders Prometheus metrics from
 /// a registry in the text exposition format at the path `/metrics` for `GET`
 /// requests. If an error is encountered, an HTTP 500 will be returned and the
 /// error will be logged.
-pub fn http_text_metrics(context: Arc<RequestContext>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+pub fn http_text_metrics(registry: Arc<Registry>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path("metrics").and(warp::filters::method::get()).map(move || {
-        let context = context.clone();
+        let registry = registry.clone();
         let mut buf = String::new();
 
-        match text::encode(&mut buf, &context.registry) {
+        match text::encode(&mut buf, &registry) {
             Ok(_) => {
-                tracing::debug!(message = "encoded prometheus metrics to text format",);
+                tracing::debug!(message = "encoded prometheus metrics to text format", bytes = buf.len());
                 let mut res = Response::new(buf.into());
                 res.headers_mut()
                     .insert(CONTENT_TYPE, HeaderValue::from_static(TEXT_FORMAT));

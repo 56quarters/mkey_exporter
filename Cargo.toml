@@ -2,7 +2,7 @@
 name = "mkey_exporter"
 version = "0.1.0"
 authors = ["Nick Pillitteri"]
-description = "Inspect Memcached keys as Prometheus metrics"
+description = "Export counts and sizes of Memcached keys matching regular expressions as Prometheus metrics."
 homepage = "https://github.com/56quarters/mkey_exporter"
 repository = "https://github.com/56quarters/mkey_exporter"
 readme = "README.md"
@@ -12,6 +12,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.1.8", features = ["cargo", "derive", "help", "error-context", "std", "usage", "wrap_help"], default_features = false }
+mtop-client = "0.6.7"
 prometheus-client = "0.21.2"
 regex = "1.9.3"
 serde = { version = "1.0.183", features = ["derive"] }
@@ -20,7 +21,6 @@ tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 warp = "0.3.5"
-mtop-client = { git = "https://github.com/56quarters/mtop.git" }
 
 # Profiling, disabled by default
 pprof = {version =  "0.12.1", features = ["protobuf-codec"] , optional = true}
@@ -28,6 +28,14 @@ pprof = {version =  "0.12.1", features = ["protobuf-codec"] , optional = true}
 [features]
 default = []
 profile = ["dep:pprof"]
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "keys"
+harness = false
+
 
 [lib]
 name = "mkey_exporter"
