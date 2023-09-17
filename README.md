@@ -150,6 +150,8 @@ rules:                         # array of rules to apply, in order, for each Mem
 
 In the following examples, only the `mkey_memcached_counts` metric is shown for brevity.
 
+---
+
 This configuration sets two labels for metrics based on the Memcached keys.
 
 Keys:
@@ -183,6 +185,8 @@ mkey_memcached_counts{user="user-2",store="user-profile"} 1
 mkey_memcached_counts{user="user-3",store="user-profile"} 1
 mkey_memcached_counts{user="user-1",store="user-cart"} 1
 ```
+
+---
 
 This configuration sets two labels for metrics based on the Memcached keys using
 multiple rules to set values for the "store" label.
@@ -226,6 +230,8 @@ mkey_memcached_counts{user="user-3",store="user-profile"} 1
 mkey_memcached_counts{user="user-1",store="user-cart"} 1
 mkey_memcached_counts{user="user-1",store="unknown"} 1
 ```
+
+---
 
 ## Limitations
 
