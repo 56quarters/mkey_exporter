@@ -128,9 +128,111 @@ define. The rules parse portions of the Memcached key and turn them into Prometh
 names and values. Some example configurations and the resulting prometheus metrics that
 would be generated a given below.
 
+Each rule in an `mkey_exporter` parses a value for a particular Prometheus label from a
+Memcached key. Rules are evaluated in order. The first rule that sets a value for a particular
+label name "wins", no other rules that set that label name will be evaluated for a Memcached
+key.
+
+The configuration format is defined as:
+
+```yaml
+name: example                  # name of this configuration, used for diagnostics
+rules:                         # array of rules to apply, in order, for each Memcached key
+- pattern: '^(\w+):'           # regular expression to apply to the Memcached key
+  label_name: 'store'          # name of the label to emit, this may NOT contain regular expression captures
+  label_value: '$1'            # value of the label to emit, this MAY contain regular expression captures
+- pattern: '^\w+:([\w\-]+):'   # you may include as many rules as you want, they will be evaluated in order
+  label_name: 'user'
+  label_value: '$1'
+```
+
+#### Examples
+
+In the following examples, only the `mkey_memcached_counts` metric is shown for brevity.
+
+This configuration sets two labels for metrics based on the Memcached keys.
+
+Keys:
+
+```
+user-profile:user-1:backup
+user-profile:user-1:latest
+user-profile:user-2:latest
+user-profile:user-3:latest
+user-cart:user-1:latest
+```
+
+Rules:
+
+```yaml
+name: example
+rules:
+- pattern: '^(\w+):'
+  label_name: 'store'
+  label_value: '$1'
+- pattern: '^\w+:([\w\-]+):'
+  label_name: 'user'
+  label_value: '$1'
+```
+
+Metrics:
+
+```
+mkey_memcached_counts{user="user-1",store="user-profile"} 2
+mkey_memcached_counts{user="user-2",store="user-profile"} 1
+mkey_memcached_counts{user="user-3",store="user-profile"} 1
+mkey_memcached_counts{user="user-1",store="user-cart"} 1
+```
+
+This configuration sets two labels for metrics based on the Memcached keys using
+multiple rules to set values for the "store" label.
+
+Keys:
+
+```
+up:user-1:backup
+up:user-1:latest
+up:user-2:latest
+up:user-3:latest
+uc:user-1:latest
+uu:user-1:latest
+```
+
+Rules:
+
+```yaml
+name: example
+rules:
+- pattern: '^up:'
+  label_name: 'store'
+  label_value: 'user-profile'
+- pattern: '^uc:'
+  label_name: 'store'
+  label_value: 'user-cart'
+- pattern: '^\w+:'
+  label_name: 'store'
+  label_value: 'unknown'
+- pattern: '^\w+:([\w\-]+):'
+  label_name: 'user'
+  label_value: '$1'
+```
+
+Metrics:
+
+```
+mkey_memcached_counts{user="user-1",store="user-profile"} 2
+mkey_memcached_counts{user="user-2",store="user-profile"} 1
+mkey_memcached_counts{user="user-3",store="user-profile"} 1
+mkey_memcached_counts{user="user-1",store="user-cart"} 1
+mkey_memcached_counts{user="user-1",store="unknown"} 1
+```
+
 ## Limitations
 
-TBD
+Every evaluation loop, `mkey_exporter` gets a complete list of keys from the Memcached
+server. This means the time taken for each update will increase based on the number of
+keys in the server. I've tested up to 3.5M keys running on a server local to the 
+`mkey_exporter` process with decent results (~5s update time).
 
 ## License
 
