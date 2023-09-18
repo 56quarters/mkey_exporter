@@ -117,9 +117,41 @@ cargo uninstall mkey_exporter
 
 ## Usage
 
+Examples of running and configuring `mkey_exporter` are given below.
+
 ### Running
 
-TBD
+`mkey_exporter` has a single required argument: the path to a configuration file. Examples
+of invoking `mkey_exporter` with a variety of options are listed below. In each of these
+examples, `config.yaml` is a valid configuration file. Example configuration files are listed
+below in the `Config` section or there is an example in the 
+[repository](https://github.com/56quarters/mkey_exporter/blob/master/config.yaml).
+
+You can find information about all supported options by running `mkey_exporter --help`.
+
+#### Connecting to a local server
+
+```
+mkey_exporter config.yaml
+```
+
+#### Connecting to a remote server
+
+```
+mkey_exporter --host cache01.example.com config.yaml
+```
+
+#### Connecting to a remote server over TLS
+
+```
+mkey_exporter --host cache01.example.com:11211 --tls-enabled --tls-ca memcached-ca-cert.pem --tls-cert memcached-client-cert.pem --tls-key memcached-client-key.pem config.yaml 
+```
+
+#### Enabling debug logging and a quicker refresh interval
+
+```
+mkey_exporter --log-level debug --refresh-secs 30 config.yaml
+```
 
 ### Config
 
