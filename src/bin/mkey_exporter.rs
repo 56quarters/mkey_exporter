@@ -31,11 +31,6 @@ struct MkeyExporterApplication {
     #[arg(long, default_value_t = DEFAULT_LOG_LEVEL)]
     log_level: Level,
 
-    /// Enable logging of HTTP requests such as /metrics or (optional) profiling
-    /// endpoints.
-    #[arg(long)]
-    access_log: bool,
-
     /// Address to bind to. By default, the server will bind to public address since
     /// the purpose is to expose metrics to an external system (Prometheus or another
     /// agent for ingestion)
