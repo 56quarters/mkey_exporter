@@ -1,9 +1,5 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
-use warp::http::header::CONTENT_TYPE;
-use warp::http::{HeaderValue, Response, StatusCode};
-use warp::{Filter, Rejection, Reply};
 
 #[cfg(not(feature = "profile"))]
 pub use nop::Profiler;
@@ -14,8 +10,6 @@ pub use pull::Profiler;
 mod nop;
 #[cfg(feature = "profile")]
 mod pull;
-
-const OCTET_STREAM: &str = "application/octet-stream";
 
 /// Construct and return a new `Profiler` CPU profiler. This may be a pprof CPU
 /// profiler or a no-op CPU profiler depending on build-time settings.
@@ -70,27 +64,4 @@ impl Error for ProfilerError {
             None
         }
     }
-}
-
-pub fn http_pprof(profiler: Arc<Profiler>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    warp::path("debug")
-        .and(warp::path("pprof"))
-        .and(warp::path("profile"))
-        .and(warp::filters::method::get())
-        .map(move || {
-            let profiler = profiler.clone();
-            match profiler.proto() {
-                Ok(bytes) => {
-                    tracing::debug!(message = "encoded profiling data to protobuf", bytes = bytes.len());
-                    let mut res = Response::new(bytes);
-                    res.headers_mut()
-                        .insert(CONTENT_TYPE, HeaderValue::from_static(OCTET_STREAM));
-                    res.into_response()
-                }
-                Err(e) => {
-                    tracing::error!(message = "error building or encoding profiling report", error = %e);
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
-                }
-            }
-        })
 }

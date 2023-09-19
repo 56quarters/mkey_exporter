@@ -1,4 +1,7 @@
+use axum::routing::get;
+use axum::Router;
 use clap::{Parser, ValueHint};
+use mkey_exporter::http::RequestState;
 use mkey_exporter::keys::LabelParser;
 use mkey_exporter::metrics::Metrics;
 use mtop_client::{MemcachedPool, MtopError, PoolConfig, TLSConfig};
@@ -15,7 +18,6 @@ use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tokio::time::Instant;
 use tracing::Level;
-use warp::Filter;
 
 const DEFAULT_BIND_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 9761);
 const DEFAULT_REFRESH_SECS: u64 = 180;
@@ -189,25 +191,29 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
     });
 
-    let filter = mkey_exporter::metrics::http_text_metrics(Arc::new(registry))
-        .or(mkey_exporter::profile::http_pprof(Arc::new(profiler)))
-        .with(warp::trace::request());
+    let state = Arc::new(RequestState { registry, profiler });
+    let app = Router::new()
+        .route("/metrics", get(mkey_exporter::http::text_metrics_handler))
+        .route("/debug/pprof/profile", get(mkey_exporter::http::pprof_handler))
+        .with_state(state.clone());
 
-    let (sock, server) = warp::serve(filter)
-        .try_bind_with_graceful_shutdown(opts.bind, async {
-            // Wait for either SIGTERM or SIGINT to shutdown
-            tokio::select! {
-                _ = sigterm() => {}
-                _ = sigint() => {}
-            }
+    let server = axum::Server::try_bind(&opts.bind)
+        .map(|s| {
+            s.serve(app.into_make_service()).with_graceful_shutdown(async {
+                // Wait for either SIGTERM or SIGINT to shutdown
+                tokio::select! {
+                    _ = sigterm() => {}
+                    _ = sigint() => {}
+                }
+            })
         })
         .unwrap_or_else(|e| {
-            tracing::error!(message = "error binding to address", address = %opts.bind, err = %e);
+            tracing::error!(message = "error starting server", address = %opts.bind, err = %e);
             process::exit(1)
         });
 
-    tracing::info!(message = "server started", address = %sock);
-    server.await;
+    tracing::info!(message = "starting server", address = %opts.bind);
+    server.await.unwrap();
 
     tracing::info!("server shutdown");
     Ok(())

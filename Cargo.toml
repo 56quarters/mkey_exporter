@@ -11,6 +11,7 @@ keywords = ["top", "memcached"]
 edition = "2021"
 
 [dependencies]
+axum = "0.6.20"
 clap = { version = "4.1.8", features = ["cargo", "derive", "help", "error-context", "std", "usage", "wrap_help"], default_features = false }
 mtop-client = "0.6.7"
 prometheus-client = "0.21.2"
@@ -20,7 +21,6 @@ serde_yaml = "0.9.25"
 tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
-warp = "0.3.5"
 # Profiling, disabled by default
 pprof = {version =  "0.12.1", features = ["protobuf-codec"] , optional = true}
 

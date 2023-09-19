@@ -1,5 +1,6 @@
 use crate::profile::ProfilerError;
 
+#[derive(Debug)]
 pub struct Profiler {}
 
 impl Profiler {
