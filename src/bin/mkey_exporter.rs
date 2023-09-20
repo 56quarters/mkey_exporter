@@ -17,6 +17,7 @@ use tokio::runtime::Handle;
 use tokio::signal::unix;
 use tokio::signal::unix::SignalKind;
 use tokio::time::Instant;
+use tower_http::trace::TraceLayer;
 use tracing::Level;
 
 const DEFAULT_BIND_ADDR: ([u8; 4], u16) = ([0, 0, 0, 0], 9761);
@@ -195,6 +196,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let app = Router::new()
         .route("/metrics", get(mkey_exporter::http::text_metrics_handler))
         .route("/debug/pprof/profile", get(mkey_exporter::http::pprof_handler))
+        .layer(TraceLayer::new_for_http())
         .with_state(state.clone());
 
     let server = axum::Server::try_bind(&opts.bind)
