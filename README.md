@@ -17,7 +17,7 @@ thing-2:user-1:something
 thing-2:user-1:something-else
 ```
 
-And the configuration:
+And the YAML configuration:
 
 ```yaml
 name: demo
@@ -121,11 +121,11 @@ Examples of running and configuring `mkey_exporter` are given below.
 
 ### Running
 
-`mkey_exporter` has a single required argument: the path to a configuration file. Examples
-of invoking `mkey_exporter` with a variety of options are listed below. In each of these
-examples, `config.yaml` is a valid configuration file. Example configuration files are listed
-below in the `Config` section or there is an example in the 
-[repository](https://github.com/56quarters/mkey_exporter/blob/master/config.yaml).
+`mkey_exporter` has a single required argument: the path to a YAML configuration file.
+Examples  of invoking `mkey_exporter` with a variety of options are listed below. In
+each of these  examples, `config.yaml` is a valid YAML configuration file. Example
+configuration files are listed  below in the `Config` section or there is an example
+in the [repository](https://github.com/56quarters/mkey_exporter/blob/master/config.yaml).
 
 You can find information about all supported options by running `mkey_exporter --help`.
 
@@ -160,21 +160,21 @@ define. The rules parse portions of the Memcached key and turn them into Prometh
 names and values. Some example configurations and the resulting prometheus metrics that
 would be generated a given below.
 
-Each rule in an `mkey_exporter` parses a value for a particular Prometheus label from a
-Memcached key. Rules are evaluated in order. The first rule that sets a value for a particular
-label name "wins", no other rules that set that label name will be evaluated for a Memcached
-key.
+Each rule in an `mkey_exporter` configuration file parses a value for a particular Prometheus
+label from a  Memcached key. Rules are evaluated in order. The first rule that sets a value
+for a particular  label name "wins", no other rules that set that label name will be evaluated
+for a Memcached  key.
 
 The configuration format is defined as:
 
 ```yaml
-name: example                  # name of this configuration, used for diagnostics
-rules:                         # array of rules to apply, in order, for each Memcached key
-- pattern: '^(\w+):'           # regular expression to apply to the Memcached key
-  label_name: 'store'          # name of the label to emit, this may NOT contain regular expression captures
-  label_value: '$1'            # value of the label to emit, this MAY contain regular expression captures
-- pattern: '^\w+:([\w\-]+):'   # you may include as many rules as you want, they will be evaluated in order
-  label_name: 'user'
+name: example                  # Name of this configuration, used for diagnostics.
+rules:                         # Array of rules to apply, in order, for each Memcached key.
+- pattern: '^(\w+):'           # Regular expression to apply to the Memcached key.
+  label_name: 'store'          # Name of the label to emit, this may NOT contain regular expression captures.
+  label_value: '$1'            # Value of the label to emit, this MAY contain regular expression captures.
+- pattern: '^\w+:([\w\-]+):'   # You may include as many rules as you want, they will be evaluated in order
+  label_name: 'user'           # for every Memcached key.
   label_value: '$1'
 ```
 
@@ -269,8 +269,8 @@ mkey_memcached_counts{user="user-1",store="unknown"} 1
 
 Every evaluation loop, `mkey_exporter` gets a complete list of keys from the Memcached
 server. This means the time taken for each update will increase based on the number of
-keys in the server. I've tested up to 3.5M keys running on a server local to the 
-`mkey_exporter` process with decent results (~5s update time).
+keys in the server. I've tested up to 3.5 million keys running on a server local to the 
+`mkey_exporter` process with decent results (approximately a 5-second update time).
 
 ## License
 
