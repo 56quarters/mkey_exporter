@@ -158,7 +158,7 @@ mkey_exporter --log-level debug --refresh-secs 30 config.yaml
 `mkey_exporter` buckets Memcached keys using Prometheus labels based on rules that you
 define. The rules parse portions of the Memcached key and turn them into Prometheus label
 names and values. Some example configurations and the resulting prometheus metrics that
-would be generated a given below.
+would be generated are given below.
 
 Each rule in an `mkey_exporter` configuration file parses a value for a particular Prometheus
 label from a  Memcached key. Rules are evaluated in order. The first rule that sets a value
