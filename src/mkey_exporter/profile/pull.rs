@@ -2,6 +2,7 @@ use crate::profile::ProfilerError;
 use pprof::protos::Message;
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use std::ffi::c_int;
+use std::fmt;
 
 const PROFILE_FREQUENCY_HZ: c_int = 1000;
 const PROFILE_BLOCK_LIST: &[&str] = &["libc", "libgcc", "pthread", "vdso"];
@@ -32,5 +33,11 @@ impl Profiler {
                     .write_to_bytes()
                     .map_err(|e| ProfilerError::msg_cause("cannot encode as protobuf", e))
             })
+    }
+}
+
+impl fmt::Debug for Profiler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Profiler {{ guard: <...> }}")
     }
 }

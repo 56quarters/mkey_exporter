@@ -1,4 +1,3 @@
-use prometheus_client::encoding::text;
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
@@ -6,14 +5,8 @@ use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::{Registry, Unit};
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::time::Duration;
-use warp::http::header::CONTENT_TYPE;
-use warp::http::{HeaderValue, StatusCode};
-use warp::reply::Response;
-use warp::{Filter, Rejection, Reply};
 
-const TEXT_FORMAT: &str = "application/openmetrics-text; version=1.0.0; charset=utf-8";
 const DEFAULT_BUCKETS: &[f64] = &[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0];
 const RESULT_SUCCESS: UpdateResultLabels = UpdateResultLabels {
     result: UpdateResult::Success,
@@ -21,31 +14,6 @@ const RESULT_SUCCESS: UpdateResultLabels = UpdateResultLabels {
 const RESULT_FAILURE: UpdateResultLabels = UpdateResultLabels {
     result: UpdateResult::Failure,
 };
-
-/// Create a warp Filter implementation that renders Prometheus metrics from
-/// a registry in the text exposition format at the path `/metrics` for `GET`
-/// requests. If an error is encountered, an HTTP 500 will be returned and the
-/// error will be logged.
-pub fn http_text_metrics(registry: Arc<Registry>) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
-    warp::path("metrics").and(warp::filters::method::get()).map(move || {
-        let registry = registry.clone();
-        let mut buf = String::new();
-
-        match text::encode(&mut buf, &registry) {
-            Ok(_) => {
-                tracing::debug!(message = "encoded prometheus metrics to text format", bytes = buf.len());
-                let mut res = Response::new(buf.into());
-                res.headers_mut()
-                    .insert(CONTENT_TYPE, HeaderValue::from_static(TEXT_FORMAT));
-                res
-            }
-            Err(e) => {
-                tracing::error!(message = "error encoding metrics to text format", error = %e);
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
-        }
-    })
-}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 struct UpdateResultLabels {
