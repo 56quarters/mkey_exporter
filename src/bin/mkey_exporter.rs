@@ -246,6 +246,5 @@ async fn sigterm() -> io::Result<()> {
 async fn sigterm() -> io::Result<()> {
     // No SIGTERM on windows. Create a no-op future that never resolves so we can
     // have both sigterm() and sigint() above to trigger shutdown of the server.
-    std::future::pending().await;
-    Ok(())
+    std::future::pending::<io::Result<()>>().await
 }
