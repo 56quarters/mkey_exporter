@@ -1,6 +1,6 @@
 [package]
 name = "mkey_exporter"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nick Pillitteri"]
 description = "Export counts and sizes of Memcached keys matching regular expressions as Prometheus metrics."
 homepage = "https://github.com/56quarters/mkey_exporter"
