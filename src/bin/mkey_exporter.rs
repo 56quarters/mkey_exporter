@@ -14,8 +14,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{io, process};
 use tokio::runtime::Handle;
-use tokio::signal::unix;
-use tokio::signal::unix::SignalKind;
 use tokio::time::Instant;
 use tower_http::trace::TraceLayer;
 use tracing::Level;
@@ -233,14 +231,21 @@ async fn connect(host: &str, pool: &MemcachedPool) -> Result<(), MtopError> {
     Ok(())
 }
 
-/// Return after the first SIGTERM signal received by this process
+async fn sigint() -> io::Result<()> {
+    tokio::signal::ctrl_c().await
+}
+
+#[cfg(unix)]
 async fn sigterm() -> io::Result<()> {
+    use tokio::signal::unix::{self, SignalKind};
     unix::signal(SignalKind::terminate())?.recv().await;
     Ok(())
 }
 
-/// Return after the first SIGINT signal received by this process
-async fn sigint() -> io::Result<()> {
-    unix::signal(SignalKind::interrupt())?.recv().await;
+#[cfg(not(unix))]
+async fn sigterm() -> io::Result<()> {
+    // No SIGTERM on windows. Create a no-op future that never resolves so we can
+    // have both sigterm() and sigint() above to trigger shutdown of the server.
+    std::future::pending().await;
     Ok(())
 }
