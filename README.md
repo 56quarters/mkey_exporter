@@ -63,6 +63,10 @@ There are multiple ways to install `mkey_exporter` listed below.
 Binaries are published for GNU/Linux (x86_64), Windows (x86_64), and MacOS (x86_64 and aarch64)
 for [each release](https://github.com/56quarters/mkey_exporter/releases).
 
+### Docker
+
+Docker images for GNU/Linux (x86_64, arm64) are published for [each release](https://hub.docker.com/r/56quarters/mkey_exporter).
+
 ### Cargo
 
 `mkey_exporter` along with its dependencies can be downloaded and built from source using the
