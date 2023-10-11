@@ -1,6 +1,6 @@
 [package]
 name = "mkey_exporter"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Nick Pillitteri"]
 description = "Export counts and sizes of Memcached keys matching regular expressions as Prometheus metrics."
 homepage = "https://github.com/56quarters/mkey_exporter"
@@ -13,7 +13,7 @@ edition = "2021"
 [dependencies]
 axum = "0.6.20"
 clap = { version = "4.1.8", features = ["cargo", "derive", "help", "error-context", "std", "usage", "wrap_help"], default_features = false }
-mtop-client = "0.6.7"
+mtop-client = "0.6.8"
 prometheus-client = "0.21.2"
 regex = "1.9.3"
 serde = { version = "1.0.183", features = ["derive"] }

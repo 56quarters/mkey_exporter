@@ -1,6 +1,6 @@
 # Changelog
 
-## unreleased
+## v0.1.2 - 2023-10-10
 
 - Build Docker images for `amd64` and `arm64`. #15
 
